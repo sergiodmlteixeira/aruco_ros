@@ -45,6 +45,8 @@
 #include <aruco_msgs/MarkerArray.h>
 #include <tf/transform_listener.h>
 #include <std_msgs/UInt32MultiArray.h>
+#include <tf2_ros/transform_broadcaster.h>
+#include <geometry_msgs/TransformStamped.h>
 
 class ArucoMarkerPublisher
 {
@@ -142,10 +144,10 @@ public:
 
   void image_callback(const sensor_msgs::ImageConstPtr& msg)
   {
-    bool publishMarkers = marker_pub_.getNumSubscribers() > 0;
-    bool publishMarkersList = marker_list_pub_.getNumSubscribers() > 0;
-    bool publishImage = image_pub_.getNumSubscribers() > 0;
-    bool publishDebug = debug_pub_.getNumSubscribers() > 0;
+    bool publishMarkers = marker_pub_.getNumSubscribers() >= 0;
+    bool publishMarkersList = marker_list_pub_.getNumSubscribers() >= 0;
+    bool publishImage = image_pub_.getNumSubscribers() >= 0;
+    bool publishDebug = debug_pub_.getNumSubscribers() >= 0;
 
     if (!publishMarkers && !publishMarkersList && !publishImage && !publishDebug)
       return;
@@ -199,6 +201,18 @@ public:
             transform = static_cast<tf::Transform>(cameraToReference) * transform;
             tf::poseTFToMsg(transform, marker_i.pose.pose);
             marker_i.header.frame_id = reference_frame_;
+
+            static tf2_ros::TransformBroadcaster broadcaster;
+            geometry_msgs::TransformStamped transformStamped;
+
+            transformStamped.header.stamp = ros::Time::now();
+            transformStamped.header.frame_id = "map";
+            transformStamped.child_frame_id = "detected" + std::to_string(marker_i.id);
+            transformStamped.transform.translation.x = marker_i.pose.pose.position.x;
+            transformStamped.transform.translation.y = marker_i.pose.pose.position.y;
+            transformStamped.transform.translation.z = marker_i.pose.pose.position.z;
+            transformStamped.transform.rotation = marker_i.pose.pose.orientation;
+            broadcaster.sendTransform(transformStamped);
           }
         }
 
